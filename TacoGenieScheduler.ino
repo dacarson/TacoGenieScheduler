@@ -57,14 +57,8 @@
 #include "Scheduler.h"
 
 // WiFi Credentials
-// const char *ssid     = "your_wifi_name";
-// const char *password = "your_wifi_password";
-
-//const char *ssid     = "303Resort";
-//const char *password = "BigCanyonDrS";
-
-const char *ssid     = "Localnet-n";
-const char *password = "24planet";
+const char *ssid     = "your_wifi_name";
+const char *password = "your_wifi_password";
 
 
 #if defined (ESP8266)
