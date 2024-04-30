@@ -20,9 +20,9 @@
  SOFTWARE.
  */
 #if defined (ESP8266)
-#include <ESP_EEPROM.h>
+  #include <ESP_EEPROM.h>
 #else if defined (ESP32_DEV)
-#include <EEPROM.h>
+  #include <EEPROM.h>
 #endif
 #include <ArduinoJson.h>
 #include "esp_sntp.h"

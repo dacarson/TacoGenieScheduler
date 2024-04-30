@@ -40,13 +40,13 @@
  */
 
 #if defined (ESP8266)
-	#include <ESP8266WiFi.h>
-	#include <ESP8266WebServer.h>
-	#include <ESP8266mDNS.h>
+  #include <ESP8266WiFi.h>
+  #include <ESP8266WebServer.h>
+  #include <ESP8266mDNS.h>
 #else if defined (ESP32_DEV)
-	#include <WiFi.h>
-	#include <WebServer.h>
-	#include <ESPmDNS.h>
+  #include <WiFi.h>
+  #include <WebServer.h>
+  #include <ESPmDNS.h>
 #endif
 #include <FS.h>
 #include <LittleFS.h>
@@ -56,10 +56,9 @@
 
 #include "Scheduler.h"
 
-// WiFi Credentials
+  // WiFi Credentials
 const char *ssid     = "your_wifi_name";
 const char *password = "your_wifi_password";
-
 
 #if defined (ESP8266)
   const int relayPin = D1;
@@ -69,10 +68,10 @@ const char *password = "your_wifi_password";
   const int led = 2;
 #endif
 
-// Construct a global scheduler object to manage the schedule
+  // Construct a global scheduler object to manage the schedule
 Scheduler scheduler(relayPin);
 
-// Construct a webserver
+  // Construct a webserver
 #if defined (ESP8266)
   ESP8266WebServer server(80);
 #else if defined (ESP32_DEV)
@@ -80,89 +79,89 @@ Scheduler scheduler(relayPin);
 #endif
 
 void handleSetConfig() {
-	// Check if there's any POST data
-	if (server.hasArg("plain") == false) { // "plain" is for raw POST data
-		server.send(500, "text/plain", "POST body not found");
-		return;
-	}
-	
-	if (!scheduler.jsonToSchedule(server.arg("plain"))) {
-		server.send(500, "text/plain", "Error parsing JSON");
-		return;
-	}
-	server.send(200, "text/plain", "Schedule updated");
+    // Check if there's any POST data
+  if (server.hasArg("plain") == false) { // "plain" is for raw POST data
+    server.send(500, "text/plain", "POST body not found");
+    return;
+  }
+  
+  if (!scheduler.jsonToSchedule(server.arg("plain"))) {
+    server.send(500, "text/plain", "Error parsing JSON");
+    return;
+  }
+  server.send(200, "text/plain", "Schedule updated");
 }
 
 void handleGetConfig() {
-	server.send(200, "application/json", scheduler.scheduleToJson());
+  server.send(200, "application/json", scheduler.scheduleToJson());
 }
 
 void handleGetTimezone() {
-	if (server.hasArg("tz")) {
-		String timezone = server.arg("tz");
-		scheduler.setTz(timezone);
-	} else {
-		Serial.println("Missing timezone from timezone image request");
-	}
-	server.send(200, "image/png", "");
+  if (server.hasArg("tz")) {
+    String timezone = server.arg("tz");
+    scheduler.setTz(timezone);
+  } else {
+    Serial.println("Missing timezone from timezone image request");
+  }
+  server.send(200, "image/png", "");
 }
 
 void setup() {
-	pinMode ( led, OUTPUT );
-	
-	Serial.begin(115200);
-	WiFi.begin(ssid, password);
-	Serial.println ( F("") );
-	Serial.print ( F("Connecting to WiFi "));
-	
-	// Ensure relay is off initially
-	pinMode(relayPin, OUTPUT);
-	digitalWrite(relayPin, LOW);
-	
-	// Wait for connection
+  pinMode ( led, OUTPUT );
+  
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  Serial.println ( F("") );
+  Serial.print ( F("Connecting to WiFi "));
+  
+    // Ensure relay is off initially
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW);
+  
+    // Wait for connection
   int flash = 0;
-	while (WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		Serial.print(".");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
     if (flash & 0x1) {
       digitalWrite(led, HIGH);
     } else {
       digitalWrite(led, LOW);
     }
     flash++;
-	}
-	
-	Serial.println ( F("") );
-	Serial.print (F("Connected to ") );
-	Serial.println ( ssid );
-	Serial.print ( F("IP address: ") );
-	Serial.println ( WiFi.localIP() );
-	
-	if(!LittleFS.begin()){
-		Serial.println("LittleFS Mount Failed");
-	}
-	
-	scheduler.begin();
-	
-	server.on("/getConfig", HTTP_GET, handleGetConfig);
-	server.on("/setConfig", HTTP_POST, handleSetConfig);
-	
-	server.on("/timezone.png", HTTP_GET, handleGetTimezone);
-	
-	server.serveStatic ("/", LittleFS, "/index.html");
-	server.serveStatic ("/main.css", LittleFS, "/main.css");
-	server.serveStatic ("/bkgnd.jpg", LittleFS, "/bkgnd.jpg");
-	server.serveStatic ("/main.js", LittleFS, "/main.js");
-	server.serveStatic ("/moment.js", LittleFS, "/moment.js");
-	server.serveStatic ("/momentTimezone.js", LittleFS, "/momentTimezone.js");
+  }
+  
+  Serial.println ( F("") );
+  Serial.print (F("Connected to ") );
+  Serial.println ( ssid );
+  Serial.print ( F("IP address: ") );
+  Serial.println ( WiFi.localIP() );
+  
+  if(!LittleFS.begin()){
+    Serial.println("LittleFS Mount Failed");
+  }
+  
+  scheduler.begin();
+  
+  server.on("/getConfig", HTTP_GET, handleGetConfig);
+  server.on("/setConfig", HTTP_POST, handleSetConfig);
+  
+  server.on("/timezone.png", HTTP_GET, handleGetTimezone);
+  
+  server.serveStatic ("/", LittleFS, "/index.html");
+  server.serveStatic ("/main.css", LittleFS, "/main.css");
+  server.serveStatic ("/bkgnd.jpg", LittleFS, "/bkgnd.jpg");
+  server.serveStatic ("/main.js", LittleFS, "/main.js");
+  server.serveStatic ("/moment.js", LittleFS, "/moment.js");
+  server.serveStatic ("/momentTimezone.js", LittleFS, "/momentTimezone.js");
   server.serveStatic ("/favicon.ico", LittleFS, "/favicon.ico");
-	server.begin();
-	
+  server.begin();
+  
 }
 
 void loop() {
-	server.handleClient();
-	scheduler.update();
+  server.handleClient();
+  scheduler.update();
   if (scheduler.isActive()) {
     digitalWrite(led, HIGH);
   } else {
