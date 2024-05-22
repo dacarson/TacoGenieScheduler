@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vacation Mode Settings</title>
+<link rel="stylesheet" href="vacation.css">
+</head>
+<body>
+    <h1>Vacation Mode</h1>
+    <div id="currentVacationPeriod"></div>
+    <p>
+    <form id="vacationModeForm">
+        <div>
+            <label for="startDate">Start Date and Time:</label>
+            <input type="datetime-local" id="startDate" name="startDate">
+        </div>
+        <div>
+            <label for="endDate">End Date and Time (leave blank for indefinite):</label>
+            <input type="datetime-local" id="endDate" name="endDate">
+        </div>
+        <button type="button" onclick="submitVacationModeSettings()">Set Vacation Period</button>
+        <button type="button" onclick="clearVacationModeSettings()">Clear Vacation Period</button>
+    </form>
+
+    <script src="vacation.js"></script>
+</body>
+</html>
+
