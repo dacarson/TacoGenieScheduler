@@ -120,14 +120,14 @@ void handleGetStatus() {
 
   switch (scheduler.getCurrentState()) {
     case Scheduler::Active:
-      doc["status"] = "Running";
+      doc["status"] = "Active";
       break;
     case Scheduler::Vacation:
       doc["status"] = "Paused for vacation";
       break;
     case Scheduler::InActive:
     default:
-      doc["status"] = "Stopped";
+      doc["status"] = "Inactive";
       break;
   }
 
