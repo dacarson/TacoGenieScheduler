@@ -135,7 +135,7 @@ void handleGetStatus() {
   time_t nextEvent = 0;
   switch (scheduler.getNextState(&nextEvent)) {
       case Scheduler::Active:
-      doc["nextStatus"] = "start running";
+      doc["nextStatus"] = "become active";
       break;
     case Scheduler::Vacation:
       if (scheduler.getCurrentState() == Scheduler::Vacation) {
@@ -146,7 +146,7 @@ void handleGetStatus() {
       break;
     case Scheduler::InActive:
     default:
-      doc["nextStatus"] = "stop";
+      doc["nextStatus"] = "become inactive";
       break;
   }
   if (nextEvent) {
