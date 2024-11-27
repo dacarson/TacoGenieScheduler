@@ -18,7 +18,14 @@ The TacoGenie runs until it detects hot water and then switches off.
 
 Through the web page you can configure when you would like the unit to run. The web page allows you to have 10 different time slots per day. Each day can be configured separately. When in an active timeslot, the software tells the unit to start every 10mins. When the pipes are hot, it automatically turns off.
 
-<img width="1313" alt="Preview" src="https://github.com/dacarson/TacoGenieScheduler/assets/44933987/75ee4e67-5fe2-4b7e-ab8c-b465124466e0">
+### Home screen
+<img width="1315" alt="Home Screen" src="https://github.com/user-attachments/assets/c308c9ba-76bb-4c2c-a860-35a8b60febdc"/>
+
+### Scheduling screen
+<img width="1315" alt="Schedule" src="https://github.com/user-attachments/assets/b07a10e8-e3f6-4ff7-ba36-316ec204af24"/>
+
+### Vacation mode screen
+<img width="1315" alt="Vacation Settings" src="https://github.com/user-attachments/assets/4b8b8c7b-223e-48ac-afea-fc201bcf7fa4"/>
 
 
 ## Setup
