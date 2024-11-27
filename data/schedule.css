@@ -21,14 +21,33 @@ SOFTWARE.
 */
 
 body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-    background-image: url('bkgnd.jpg'); /* Set the background image */
-    background-size: 100% auto; 
-    background-position: top left; 
+	font-family: Arial, sans-serif;
+	margin: 20px;
+	background-color: #e7eff9;
+}
+h2 {
+	margin-top:0px;
+}
+#schedule {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 20px;
 }
 
-body::before {
+.day-container {
+	position: relative;
+	background-image: url('bkgnd.jpg');
+	background-size: 100% auto;
+	background-repeat: no-repeat;
+	color: #000;
+	padding: 20px;
+	margin-bottom: 10px;
+	border-radius: 5px;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	flex: 1;
+	min-width: 225px;
+}
+.day-container::before {
 	content: '';
 	position: absolute;
 	top: 0;
@@ -38,20 +57,16 @@ body::before {
 	background: rgba(255, 255, 255, 0.5);
 	z-index: 0;
 }
-
-body * {
+.day-container * {
 	position: relative;
 	z-index: 1;
 }
-
-form div {
-    margin-bottom: 10px;
+.invalid {
+	border: 2px solid red;
 }
-
-label {
-    margin-right: 10px;
+.time-slot {
+	margin: 10px 0;
 }
-
 button {
 	background-color: #008CBA;
 	color: white;
@@ -61,12 +76,21 @@ button {
 	cursor: pointer;
 	margin-right: 5px;
 }
+.remove-button {
+	background-color: white;
+	color: black;
+	border: 1px solid black;
+	padding: 5px 10px;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 0.9rem;
+}
 button:hover {
 	background-color: #005f73;
 }
-
-#currentVacationPeriod {
-    margin-top: 20px;
-    font-size: 16px;
-    color: #2c3e50;
+.remove-button:hover {
+	background-color: #f0f0f0;
+}
+#saveSchedule {
+	margin-top: 20px;
 }

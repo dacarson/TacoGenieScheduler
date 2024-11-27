@@ -1,9 +1,42 @@
+/*
+Copyright (c) 2024 David Carson (dacarson)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 window.onload = function() {
   loadCurrentVacationPeriod();
 };
 
+function getLocalISODateTime() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
 function loadCurrentVacationPeriod() {
-    fetch('/getCurrentVacationPeriod')
+    fetch('/getVacationPeriod')
     .then(response => response.json())
     .then(data => {
         console.log(data);
@@ -15,10 +48,7 @@ function loadCurrentVacationPeriod() {
             document.getElementById('endDate').value = data.endDate || '';
             document.getElementById('currentVacationPeriod').innerText = `Current Vacation Period is set from ${formattedStartDate} to ${formattedEndDate}`;
         } else {
-            // Set the default start date to the current date and time
-            const now = new Date().toISOString();
-            document.getElementById('startDate').value = now.slice(0, 16); // trim off seconds for compatibility
-            document.getElementById('currentVacationPeriod').innerText = 'No Vacation Period is currently set.';
+            resetVacationModeSettings();
         }
     })
     .catch(error => {
@@ -33,14 +63,18 @@ function formatDateTime(isoString) {
 
 function resetVacationModeSettings() {
     // Set the default start date to the current date and time
-    const now = new Date().toISOString();
+    const now = getLocalISODateTime();
     document.getElementById('startDate').value = now.slice(0, 16); // trim off seconds for compatibility
     document.getElementById('currentVacationPeriod').innerText = 'Current Vacation Period: Not set';
 }
 
 function clearVacationModeSettings() {
     resetVacationModeSettings();
-    sendData('/clearVacationPeriod', {});
+    const data = {
+        startDate: null,
+        endDate: null
+    };
+    sendData('/setVacationPeriod', data);
     alert('Vacation period cleared successfully!');
 
 }

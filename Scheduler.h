@@ -32,12 +32,27 @@ class Scheduler {
     int begin();
     void update();
 
-    bool isActive();
-
     void setTz(String timezone);
 
     bool jsonToSchedule(String json);
     String scheduleToJson();
+    bool isActive();
+
+    bool jsonToVacationTime(String json);
+    String vacationTimeToJson();
+    bool vacationActive();
+    void setVacationState(bool active);
+
+    enum State {
+        Active,
+        InActive,
+        Vacation
+    };
+
+    // Getter for the current state
+    State getCurrentState() const { return currentState; }
+    State getNextState(time_t *nextStateTime) const;
+    static String stringToDateTime(time_t value);
 
 protected:
     // Structure to store schedule for a day
@@ -59,13 +74,19 @@ protected:
   bool isTimeWithinSlot(int currentHour, int currentMinute, TimeSlot slot);
   void initDefault();
 
+  time_t parseDateTime(String dateTime);
+
   DaySchedule weekSchedule[7]; // 0 = Sunday, 6 = Saturday
+  time_t startVacationTime;
+  time_t endVacationTime;
 
   String tz;
   bool sntpSyncDone;
   int relayPin;
   bool relayOn;
   bool isOn;
+  bool isVacation;
+  State currentState;
 
   static const int EEPROMStorageSize;
 };

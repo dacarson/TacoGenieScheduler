@@ -21,18 +21,21 @@
  */
 #if defined (ESP8266)
   #include <ESP_EEPROM.h>
-#else if defined (ESP32_DEV)
+#elif defined (ESP32)
   #include <EEPROM.h>
 #endif
 #include <ArduinoJson.h>
-#include "esp_sntp.h"
+#include "esp_netif_sntp.h"
 
 #include "Scheduler.h"
 
 const int EEPROM_SCHEDULE_ADDR = 0;
 const int EEPROM_TZ_ADDR = ((4 * MAX_SLOTS_PER_DAY + 1) * 7) * sizeof(int);
 const int EEPROM_TZ_MAX_LEN = 100;
-const int Scheduler::EEPROMStorageSize = EEPROM_TZ_ADDR + EEPROM_TZ_MAX_LEN;
+const int EEPROM_VACA_START_ADDR = EEPROM_TZ_ADDR + EEPROM_TZ_MAX_LEN;
+const int EEPROM_TIME_T_LEN = sizeof(time_t);
+const int EEPROM_VACA_END_ADDR = EEPROM_VACA_START_ADDR + EEPROM_TIME_T_LEN;
+const int Scheduler::EEPROMStorageSize = EEPROM_VACA_END_ADDR + sizeof(time_t);
 
 #define NTP_SERVER "pool.ntp.org"
 
@@ -40,7 +43,9 @@ const char* daysOfWeek[7] = {"sunday", "monday", "tuesday", "wednesday", "thursd
 
 
 Scheduler::Scheduler(int pin)
-: relayPin(pin), sntpSyncDone(false), isOn(false) {
+: relayPin(pin), sntpSyncDone(false), isOn(false), 
+startVacationTime(-1),  endVacationTime(-1), 
+isVacation(false), currentState(InActive) {
   relayOn = false;
   digitalWrite(relayPin, LOW);
 }
@@ -59,6 +64,27 @@ void Scheduler::initDefault() {
     
     weekSchedule[i].slotCount = 2;
   }
+}
+
+time_t Scheduler::parseDateTime(String dateTime) {
+    int year, month, day, hour, minute;
+    int numParsed = sscanf(dateTime.c_str(), "%d-%d-%dT%d:%d", &year, &month, &day, &hour, &minute);
+    if (numParsed != 5) {
+        Serial.print("Error: Date and time format empty or incorrect: ");
+        Serial.println(dateTime);
+        return 0; // Return 0 or some other error indicator
+    }
+
+    // tmElements_t is a struct that holds time elements separately
+    tm convert_tm;
+    convert_tm.tm_year = year - 1900;  // tm_year is the number of years since 1900
+    convert_tm.tm_mon = month - 1; // tm_mon is 0 - 11
+    convert_tm.tm_mday = day;
+    convert_tm.tm_hour = hour;
+    convert_tm.tm_min = minute;
+    convert_tm.tm_sec = 0;  // Assuming seconds are zero if not specified
+
+    return mktime(&convert_tm);  // Convert to time_t
 }
 
 bool Scheduler::saveScheduleToEEPROM() {
@@ -179,6 +205,154 @@ String Scheduler::scheduleToJson() {
   return jsonStr;
 }
 
+String Scheduler::stringToDateTime(time_t value) {
+    char buffer[26];
+    struct tm* tm_info;
+
+    tm_info = localtime(&value);
+    strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+
+    return buffer;
+}
+
+bool Scheduler::jsonToVacationTime(String json) {
+  JsonDocument doc;
+  
+  auto error = deserializeJson(doc, json);
+  if (error) {
+    return false;
+  }
+  
+  Serial.println("Scheduler jsonToVacationTime:");
+  Serial.println(json);
+
+  time_t newStartTime = parseDateTime(doc["startDate"]);
+  time_t newEndTime = parseDateTime(doc["endDate"]);
+
+  if (newStartTime != startVacationTime || newEndTime != endVacationTime) {
+    startVacationTime = newStartTime;
+    endVacationTime = newEndTime;
+
+    Serial.print("New vacation Start: ");
+    Serial.println(stringToDateTime(startVacationTime));
+    Serial.print("New vacation End: ");
+    Serial.println(stringToDateTime(endVacationTime));
+
+    if (EEPROM.writeLong(EEPROM_VACA_START_ADDR, startVacationTime) == sizeof(startVacationTime)) {
+      if (EEPROM.writeLong(EEPROM_VACA_END_ADDR, endVacationTime) == sizeof(endVacationTime)) {
+        Serial.println("Saved start and end vacation time to EEPROM.");
+        EEPROM.commit();
+      } else {
+        Serial.println("Failed to save vacation end to EEPROM.");
+      }
+    } else {
+      Serial.println("Failed to save vacation start to EEPROM.");
+    }
+  } else {
+    Serial.println("Vacation unchanged, not saving to EEPROM");
+  }
+
+   return true;
+}
+
+String Scheduler::vacationTimeToJson() {
+  JsonDocument doc;
+
+  if (startVacationTime) {
+    doc["startDate"] = stringToDateTime(startVacationTime);
+  } else {
+    doc["startDate"] = "";
+  }
+
+  if (endVacationTime) {
+    doc["endDate"] = stringToDateTime(endVacationTime);
+  } else {
+    doc["endDate"] = "";
+  }
+  
+  String jsonStr;
+  serializeJson(doc, jsonStr);
+  Serial.println("Scheduler vacationTimeToJson: ");
+  Serial.println(jsonStr);
+
+  return jsonStr;
+}
+
+void Scheduler::setVacationState(bool active) {
+  endVacationTime = 0;
+
+  if (active) {
+    startVacationTime = time(nullptr);
+  } else {
+    startVacationTime = 0;
+  }
+}
+
+Scheduler::State Scheduler::getNextState(time_t *nextStateTime) const {
+
+  if (currentState == State::Vacation) {
+    if (nextStateTime) {
+      *nextStateTime = endVacationTime;
+      return State::Vacation;
+    }
+  }
+
+// Find the next event
+  time_t now = time(nullptr);
+  struct tm *tm_struct = localtime(&now);
+  
+  int currentHour = tm_struct->tm_hour;
+  int currentMinute = tm_struct->tm_min;
+  int currentDay = tm_struct->tm_wday;
+
+  int currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+  for (int dayoffset = 0; dayoffset < 7; dayoffset++) {
+    int day = (currentDay + dayoffset) % 7;
+    for (int slot = 0; slot < weekSchedule[day].slotCount; slot++) {
+        int startMin = dayoffset * 24 * 60 + weekSchedule[day].slots[slot].startHour * 60 + weekSchedule[day].slots[slot].startMinute;
+        if (startMin > currentTimeInMinutes) {
+          // Calculate start time of next item
+          tm nextState_tm;
+          nextState_tm.tm_year = tm_struct->tm_year;
+          nextState_tm.tm_mon = tm_struct->tm_mon;
+          nextState_tm.tm_mday = tm_struct->tm_mday + dayoffset;
+          nextState_tm.tm_hour = weekSchedule[day].slots[slot].startHour;
+          nextState_tm.tm_min = weekSchedule[day].slots[slot].startMinute;
+          nextState_tm.tm_sec = 0; 
+          *nextStateTime = mktime(&nextState_tm);
+          if (startVacationTime && startVacationTime < *nextStateTime) {
+            *nextStateTime = startVacationTime;
+            return State::Vacation;
+          }
+          return State::Active;
+        }
+        int endMin = dayoffset * 24 * 60 + weekSchedule[day].slots[slot].endHour * 60 + weekSchedule[day].slots[slot].endMinute;
+        if (endMin > currentTimeInMinutes) {
+          // Calculate start time of next item
+          tm nextState_tm;
+          nextState_tm.tm_year = tm_struct->tm_year;
+          nextState_tm.tm_mon = tm_struct->tm_mon;
+          nextState_tm.tm_mday = tm_struct->tm_mday + dayoffset;
+          nextState_tm.tm_hour = weekSchedule[day].slots[slot].endHour;
+          nextState_tm.tm_min = weekSchedule[day].slots[slot].endMinute;
+          nextState_tm.tm_sec = 0; 
+          *nextStateTime = mktime(&nextState_tm);
+          // Check to see if vacation will start before we hit this event.
+          if (startVacationTime && startVacationTime < *nextStateTime) {
+            *nextStateTime = startVacationTime;
+            return State::Vacation;
+          }
+          return State::InActive;
+        }
+    }
+  }
+
+// Found no timeslots or vacation slot, so we are in active indefinitely
+  *nextStateTime = 0;
+  return InActive;
+}
+
 bool Scheduler::isTimeWithinSlot(int currentHour, int currentMinute, TimeSlot slot) {
     // Convert times to minutes since midnight for comparison
   int currentTimeInMinutes = currentHour * 60 + currentMinute;
@@ -197,8 +371,8 @@ void Scheduler::setTz(String timezone) {
     Serial.println(timezone);
     tz = timezone;
     
-    configTzTime(timezone.c_str(), NTP_SERVER, nullptr, nullptr);
-    sntpSyncDone = false;
+    setenv("TZ", timezone.c_str(), 1);
+    tzset();
     
     size_t saveLength = EEPROM.writeString(EEPROM_TZ_ADDR, tz);
     if (saveLength < tz.length()) {
@@ -210,6 +384,10 @@ void Scheduler::setTz(String timezone) {
 
 bool Scheduler::isActive() {
   return isOn;
+}
+
+bool Scheduler::vacationActive() {
+  return isVacation;
 }
 
 int Scheduler::begin() {
@@ -230,17 +408,31 @@ int Scheduler::begin() {
     Serial.println("No saved TZ, schedules won't run until set by loading the webpage.");
     return false;
   }
-  
+
+  if ((startVacationTime = EEPROM.readLong(EEPROM_VACA_START_ADDR)) < 0) {
+    Serial.println("Failed to load vacation start time.");
+    startVacationTime = 0;
+  }
+  if ((endVacationTime = EEPROM.readLong(EEPROM_VACA_END_ADDR)) < 0) {
+    Serial.println("Failed to load vacation end time.");
+    endVacationTime = 0;
+  }
+
   Serial.print("Restoring saved TZ: ");
   Serial.println(tz);
-  configTzTime(tz.c_str(), NTP_SERVER, nullptr, nullptr);
+  setenv("TZ", tz.c_str(), 1);
+  tzset();
+
+  // Enable SNTP
+  esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG(NTP_SERVER);
+  esp_netif_sntp_init(&config); // DEFAULT_CONFIG is to start the server on init()
   sntpSyncDone = false;
   
   return true;
 }
 
 void Scheduler::update() {
-  if (!sntpSyncDone && sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED) {
+  if (!sntpSyncDone && esp_netif_sntp_sync_wait(2000) == ESP_ERR_TIMEOUT) {
     if(tz.length() > 0) {
       Serial.print("+");
     }
@@ -257,26 +449,30 @@ void Scheduler::update() {
   int currentMinute = tm_struct->tm_min;
   int currentDay = tm_struct->tm_wday;
   
-  isOn = false;
-  for (int i = 0; i < weekSchedule[currentDay].slotCount; i++) {
-    if (isTimeWithinSlot(currentHour, currentMinute, weekSchedule[currentDay].slots[i])) {
-      isOn = true;
-        // Turn on the relay every 10 minutes within the time slot
-        // Or if we just finished syncing and it should be on
-      if (!sntpSyncDone || currentMinute % 10 == 0) {
-        if (!relayOn) {
-          digitalWrite(relayPin, HIGH);
-          Serial.println("Relay ON");
+  currentState = State::InActive;
+  if ((!startVacationTime || now < startVacationTime) && (!endVacationTime || now > endVacationTime)) {
+    for (int i = 0; i < weekSchedule[currentDay].slotCount; i++) {
+      if (isTimeWithinSlot(currentHour, currentMinute, weekSchedule[currentDay].slots[i])) {
+        currentState = State::Active;
+          // Turn on the relay every 10 minutes within the time slot
+          // Or if we just finished syncing and it should be on
+        if (!sntpSyncDone || currentMinute % 30 == 0) {
+          if (!relayOn) {
+            digitalWrite(relayPin, HIGH);
+            Serial.println("Relay ON");
+          }
+          relayOn = true;
+        } else {
+          if (relayOn) {
+            digitalWrite(relayPin, LOW);
+            Serial.println("Relay OFF");
+          }
+          relayOn = false;
         }
-        relayOn = true;
-      } else {
-        if (relayOn) {
-          digitalWrite(relayPin, LOW);
-          Serial.println("Relay OFF");
-        }
-        relayOn = false;
       }
     }
+  } else {
+    currentState = State::Vacation;
   }
 
   sntpSyncDone = true;
